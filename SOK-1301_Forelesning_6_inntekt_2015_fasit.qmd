@@ -1,0 +1,134 @@
+---
+title: "SOK-1301, Forelesning 6 - Inntektsulikhet i Troms 2015 - løsning"
+author: Derek J. Clark
+format:
+  pdf: default
+editor: visual
+---
+
+# Inntektsulikhet i Troms fylke, 2015
+
+Her skal vi se på skattetall for Troms fylke fra 2015.
+
+```{r}
+warnings=FALSE
+
+library(tidyverse)
+library(gglorenz)
+#| label: last inn data fra Troms
+
+rm(list=ls())
+
+suppressMessages(library(tidyverse))
+
+url <- "https://raw.githubusercontent.com/uit-sok-1301-h26/uit-sok-1301-h26.github.io/refs/heads/main/data/skatt_troms_2015.RDS"
+
+skatt_troms_2015 <- url %>%
+  url() %>%
+  gzcon() %>% 
+  readRDS()
+
+```
+
+Plott 100 persentiler for å vise inntektsfordelingen. Vi bruker `ntile(inntekt,100)` for å gruppere i 100 grupper etter inntekt, så beregner vi gjennomsnittet.
+
+```{r}
+df <- skatt_troms_2015 %>%
+  mutate(Persentil = ntile(inntekt, 100)) %>%
+  group_by(Persentil) %>%
+  summarise(
+    inntekt_fr_skatt = mean(inntekt, na.rm = TRUE)
+  )
+
+df
+```
+
+```{r}
+#| label: persentil plott fr skatt
+
+
+df %>% 
+  ggplot(aes(x=Persentil,y=inntekt_fr_skatt/1000)) +
+  geom_col()+
+  labs (title = "Inntektsfordeling i Troms 2015 (før skatt)",
+        y = "Inntekt (1000kr)", x= "Persentil")+
+  theme_minimal()
+  
+
+```
+
+# Oppgave - ulikhet i Tromsø kommune i 2015
+
+1.  Installer pakken `gglorenz` .
+
+2.  Lag et datasett fra `skatt_troms_2015` hvor du trekker ut verdier for Tromsø kommune (i 2015 hadde Tromsø kommunenummer 1902).
+
+3.  Bruk `gglorenz` til å tegne en Lorenz-kurve for Tromsø i 2015 basert på inntekt (før skatt), og beregne Gini-koeffisienten.
+
+```{r}
+tromso <- skatt_troms_2015 %>%
+  filter(kommnr == 1902)
+
+tromso %>% 
+  ggplot(aes(inntekt)) +
+  stat_lorenz() + # fra gglorenz
+  coord_fixed() + # ggplot2 samme skale på x- og y-aksen
+  geom_abline(linetype = "dashed") +
+  theme_minimal() +
+  labs(x = "Andel av befolkningen",
+       y = "Andel av inntekt",
+       title = "Lorenz-kurve og Ginikoeffisienten for Tromsø, 2015",
+       subtitle = "Inntekt før skatt") +
+  annotate_ineq(tromso$inntekt) # fra gglorenz
+
+```
+
+4.  Lag en ny variabel for inntekt etter skatt.
+5.  Tegne en Lorenz-kurve for Tromsø i 2015 basert på inntekt etter skatt, og beregne Gini-koeffisienten.
+
+```{r}
+tromso <- tromso %>%
+  mutate(inntekt_etter_skatt = inntekt - skatt) 
+
+tromso %>% 
+  ggplot(aes(inntekt_etter_skatt)) +
+  stat_lorenz() + 
+  coord_fixed() +
+  geom_abline(linetype = "dashed") +
+  theme_minimal() +
+  labs(x = "Andel av befolkningen",
+       y = "Andel av inntekt",
+       title = "Lorenz-kurve og Ginikoeffisienten for Tromsø, 2015",
+       subtitle = "Inntekt etter skatt") +
+  annotate_ineq(tromso$inntekt_etter_skatt) 
+```
+
+6.  Hvorfor funket dette ikke?
+7.  Rett opp feilen og tegn/beregn på nytt.
+
+```{r}
+tromso <- tromso %>%
+  filter(inntekt_etter_skatt > 0)
+
+tromso %>% 
+  ggplot(aes(inntekt_etter_skatt)) +
+  stat_lorenz() +
+  coord_fixed() +
+  geom_abline(linetype = "dashed") +
+  theme_minimal() +
+  labs(x = "Andel av befolkningen",
+   y = "Andel av inntekt",
+   title = "Lorenz-kurve og Ginikoeffisienten for Tromsø, 2015",
+   subtitle = "Inntekt etter skatt") +
+  annotate_ineq(tromso$inntekt_etter_skatt)
+
+
+```
+
+8.  Hvilke konklusjoner kan du trekke fra din analyse?
+
+At Gini reduseres etter skatt viser at skattesystemet i Norge har en omfordelende effekt. Forskjellen mellom 0,47 og 0,39 inidkerer at skattepolitikken har en viss utjevnende virkning.
+
+Denne analysen er basert på data på individer. I sine beregninger av Gini, justerer SSB for husholdningens størrelse og sammensetning. De som bor i studenthusholdninger er også utelatt fra SSB sine beregninger, men vi har ikke slik informasjon i vårt datasett.
+
+.
